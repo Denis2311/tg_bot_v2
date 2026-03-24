@@ -131,11 +131,11 @@ MESSAGES = {
     "buttons": {
         "lang": {
             "ru": {"lang_ru": "🇷🇺 Русский", "lang_en": "🇺 English", "lang_zh": "🇨🇳 中文"},
-            "en": {"lang_ru": "🇷🇺 Russian", "lang_en": "🇺🇸 English", "lang_zh": "🇨 Chinese"},
-            "zh": {"lang_ru": "🇷🇺 俄语", "lang_en": "🇺🇸 English", "lang_zh": "🇨 中文"}
+            "en": {"lang_ru": "🇷🇺 Russian", "lang_en": "🇺 English", "lang_zh": "🇨🇳 Chinese"},
+            "zh": {"lang_ru": "🇷 俄语", "lang_en": "🇺 English", "lang_zh": "🇨🇳 中文"}
         },
         "server": {
-            "ru": {"server_usd": "🇺🇸 Сервер USD", "server_eud": "🇪🇺 Сервер EUD", "server_rud": "🇷🇺 Сервер RUD", "server_chd": "🇨🇳 Сервер CHD"},
+            "ru": {"server_usd": "🇺🇸 Сервер USD", "server_eud": "🇪🇺 Сервер EUD", "server_rud": "🇷 Сервер RUD", "server_chd": "🇨🇳 Сервер CHD"},
             "en": {"server_usd": "🇺 Server USD", "server_eud": "🇪🇺 Server EUD", "server_rud": "🇷🇺 Server RUD", "server_chd": "🇨🇳 Server CHD"},
             "zh": {"server_usd": "🇺 服务器 USD", "server_eud": "🇪🇺 服务器 EUD", "server_rud": "🇷🇺 服务器 RUD", "server_chd": "🇨 服务器 CHD"}
         },
