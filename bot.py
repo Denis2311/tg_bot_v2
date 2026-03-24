@@ -41,7 +41,7 @@ MESSAGES = {
     "lang_selected": {
         "ru": "🇷🇺 Выбран русский язык.",
         "en": "🇺🇸 English selected.",
-        "zh": "cn 中文已选择。"
+        "zh": "🇨🇳 中文已选择。"
     },
     "choose_server": {
         "ru": "🌍 Выберите сервер для демо-запроса:",
