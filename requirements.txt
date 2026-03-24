@@ -1,0 +1,1 @@
+echo -e "aiogram>=3.4.0\ndeep-translator>=1.11.4" > requirements.txt
