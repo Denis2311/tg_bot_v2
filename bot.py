@@ -24,7 +24,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # === НАСТРОЙКИ ===
-BOT_TOKEN = "8563519693:AAGcDz7eTcWpKxK1cISHMsa1F8H5S28TUrI"
+BOT_TOKEN = "8563519693:AAEZL3guplbdJJ700ZLDWu0GtI705jTSN7E"
 MAIN_CHAT_ID = -1003345325031
 
 TOPIC_IDS = {
@@ -39,9 +39,9 @@ MESSAGES = {
                          "👋 Welcome! Please choose your language.\n\n"
                          "👋 欢迎！请选择语言。",
     "lang_selected": {
-        "ru": "🇷🇺 Выбран русский язык.",
-        "en": "🇬🇧 English selected.",
-        "zh": "🇨🇳 中文已选择。"
+        "ru": "🇷 Выбран русский язык.",
+        "en": "🇬 English selected.",
+        "zh": "🇨 中文已选择。"
     },
     "choose_server": {
         "ru": "🌍 Выберите сервер для демо-запроса:",
@@ -130,14 +130,14 @@ MESSAGES = {
     },
     "buttons": {
         "lang": {
-            "ru": {"lang_ru": "🇷🇺 Русский", "lang_en": "🇬🇧 English", "lang_zh": "🇨🇳 中文"},
-            "en": {"lang_ru": "🇷🇺 Russian", "lang_en": "🇬🇧 English", "lang_zh": "🇨🇳 Chinese"},
-            "zh": {"lang_ru": "🇷🇺 俄语", "lang_en": "🇬🇧 英语", "lang_zh": "🇨🇳 中文"}
+            "ru": {"lang_ru": "🇷🇺 Русский", "lang_en": "🇬 English", "lang_zh": "🇨🇳 中文"},
+            "en": {"lang_ru": "🇷🇺 Russian", "lang_en": "🇬 English", "lang_zh": "🇨🇳 Chinese"},
+            "zh": {"lang_ru": "🇷 俄语", "lang_en": "🇬🇧 英语", "lang_zh": "🇨🇳 中文"}
         },
         "server": {
             "ru": {"server_usd": "🇺🇸 Сервер USD", "server_eud": "🇪🇺 Сервер EUD", "server_rud": "🇷🇺 Сервер RUD", "server_chd": "🇨🇳 Сервер CHD"},
-            "en": {"server_usd": "🇺🇸 Server USD", "server_eud": "🇪🇺 Server EUD", "server_rud": "🇷🇺 Server RUD", "server_chd": "🇨🇳 Server CHD"},
-            "zh": {"server_usd": "🇺🇸 服务器 USD", "server_eud": "🇪🇺 服务器 EUD", "server_rud": "🇷🇺 服务器 RUD", "server_chd": "🇨🇳 服务器 CHD"}
+            "en": {"server_usd": "🇺 Server USD", "server_eud": "🇪🇺 Server EUD", "server_rud": "🇷🇺 Server RUD", "server_chd": "🇨🇳 Server CHD"},
+            "zh": {"server_usd": "🇺 服务器 USD", "server_eud": "🇪 服务器 EUD", "server_rud": "🇷🇺 服务器 RUD", "server_chd": "🇨🇳 服务器 CHD"}
         },
         "server_version": {
             "ru": {"ver_1272": "📦 1.2.7.2", "ver_1281": "🚀 1.2.8.1"},
