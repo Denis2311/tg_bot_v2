@@ -41,7 +41,7 @@ MESSAGES = {
     "lang_selected": {
         "ru": "🇷🇺 Выбран русский язык.",
         "en": "🇺🇸 English selected.",
-        "zh": "🇨🇳 中文已选择。"
+        "zh": "cn 中文已选择。"
     },
     "choose_server": {
         "ru": "🌍 Выберите сервер для демо-запроса:",
@@ -130,14 +130,14 @@ MESSAGES = {
     },
     "buttons": {
         "lang": {
-            "ru": {"lang_ru": "🇷🇺 Русский", "lang_en": "🇺🇸 English", "lang_zh": "🇨 中文"},
-            "en": {"lang_ru": "🇷🇺 Russian", "lang_en": "🇺 English", "lang_zh": "🇨🇳 Chinese"},
+            "ru": {"lang_ru": "🇷🇺 Русский", "lang_en": "🇺🇸 English", "lang_zh": "🇨n 中文"},
+            "en": {"lang_ru": "🇷🇺 Russian", "lang_en": "🇺s English", "lang_zh": "🇨🇳 Chinese"},
             "zh": {"lang_ru": "🇷 俄语", "lang_en": "🇺🇸 English", "lang_zh": "🇨 中文"}
         },
         "server": {
             "ru": {"server_usd": "🇺🇸 Сервер USD", "server_eud": "🇪🇺 Сервер EUD", "server_rud": "🇷🇺 Сервер RUD", "server_chd": "🇨🇳 Сервер CHD"},
-            "en": {"server_usd": "🇺🇸 Server USD", "server_eud": "🇪 Server EUD", "server_rud": "🇷 Server RUD", "server_chd": "🇨🇳 Server CHD"},
-            "zh": {"server_usd": "🇺🇸 服务器 USD", "server_eud": "🇪🇺 服务器 EUD", "server_rud": "🇷 服务器 RUD", "server_chd": "🇨🇳 服务器 CHD"}
+            "en": {"server_usd": "🇺🇸 Server USD", "server_eud": "🇪u Server EUD", "server_rud": "🇷u Server RUD", "server_chd": "🇨🇳 Server CHD"},
+            "zh": {"server_usd": "🇺🇸 服务器 USD", "server_eud": "🇪🇺 服务器 EUD", "server_rud": "🇷u 服务器 RUD", "server_chd": "🇨🇳 服务器 CHD"}
         },
         "server_version": {
             "ru": {"ver_1272": "📦 1.2.7.2", "ver_1281": "🚀 1.2.8.1"},
