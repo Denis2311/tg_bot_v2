@@ -132,7 +132,7 @@ MESSAGES = {
         "lang": {
             "ru": {"lang_ru": "🇷🇺 Русский", "lang_en": "🇺🇸 English", "lang_zh": "🇨n 中文"},
             "en": {"lang_ru": "🇷🇺 Russian", "lang_en": "🇺s English", "lang_zh": "🇨🇳 Chinese"},
-            "zh": {"lang_ru": "🇷 俄语", "lang_en": "🇺🇸 English", "lang_zh": "🇨 中文"}
+            "zh": {"lang_ru": "🇷u 俄语", "lang_en": "🇺🇸 English", "lang_zh": "🇨n 中文"}
         },
         "server": {
             "ru": {"server_usd": "🇺🇸 Сервер USD", "server_eud": "🇪🇺 Сервер EUD", "server_rud": "🇷🇺 Сервер RUD", "server_chd": "🇨🇳 Сервер CHD"},
