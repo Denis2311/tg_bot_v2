@@ -1,4 +1,7 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 import asyncio
+import logging
 from datetime import datetime, timedelta
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
@@ -8,6 +11,17 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from deep_translator import GoogleTranslator
 from db import init_db, save_request, get_user_requests, get_request_by_id
+
+# === НАСТРОЙКИ ЛОГИРОВАНИЯ ===
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('bot.log', encoding='utf-8'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
 # === НАСТРОЙКИ ===
 BOT_TOKEN = "8563519693:AAGcDz7eTcWpKxK1cISHMsa1F8H5S28TUrI"
@@ -160,6 +174,7 @@ bot = Bot(token=BOT_TOKEN)
 storage = MemoryStorage()
 dp = Dispatcher(storage=storage)
 
+
 class Form(StatesGroup):
     language = State()
     server_type = State()
@@ -175,15 +190,20 @@ class Form(StatesGroup):
     duration = State()
     comment = State()
 
+
 # === ПЕРЕВОД ===
 def translate_to_russian(text: str, source_lang: str) -> str:
+    """Безопасный перевод с обработкой ошибок"""
     if not text or source_lang == "ru":
         return text
     try:
         src = 'zh-CN' if source_lang == "zh" else 'en'
-        return GoogleTranslator(source=src, target='ru').translate(text)
-    except Exception:
-        return text
+        translator = GoogleTranslator(source=src, target='ru')
+        return translator.translate(text)
+    except Exception as e:
+        logger.error(f"Ошибка перевода '{text}': {e}")
+        return text  # Возвращаем оригинал при ошибке
+
 
 # === КЛАВИАТУРЫ ===
 def get_lang_keyboard(lang_code):
@@ -193,6 +213,7 @@ def get_lang_keyboard(lang_code):
         [types.InlineKeyboardButton(text=b["lang_en"], callback_data="lang_en")],
         [types.InlineKeyboardButton(text=b["lang_zh"], callback_data="lang_zh")]
     ])
+
 
 def get_server_keyboard(lang_code):
     b = MESSAGES["buttons"]["server"][lang_code]
@@ -204,6 +225,7 @@ def get_server_keyboard(lang_code):
         [types.InlineKeyboardButton(text=MESSAGES["buttons"]["back"][lang_code], callback_data="back")]
     ])
 
+
 def get_version_keyboard(lang_code):
     b = MESSAGES["buttons"]["server_version"][lang_code]
     return types.InlineKeyboardMarkup(inline_keyboard=[
@@ -212,12 +234,13 @@ def get_version_keyboard(lang_code):
         [types.InlineKeyboardButton(text=MESSAGES["buttons"]["back"][lang_code], callback_data="back")]
     ])
 
+
 def get_area_keyboard(lang_code, server_type):
     sizes = AREA_SIZES_CHD if server_type == "CHD" else AREA_SIZES_GLOBAL
-    return types.InlineKeyboardMarkup(inline_keyboard=[
-        [types.InlineKeyboardButton(text=size, callback_data=f"area_{size}")]
-        for size in sizes
-    ] + [[types.InlineKeyboardButton(text=MESSAGES["buttons"]["back"][lang_code], callback_data="back")]])
+    buttons = [[types.InlineKeyboardButton(text=size, callback_data=f"area_{size}")] for size in sizes]
+    buttons.append([types.InlineKeyboardButton(text=MESSAGES["buttons"]["back"][lang_code], callback_data="back")])
+    return types.InlineKeyboardMarkup(inline_keyboard=buttons)
+
 
 def get_vr_keyboard(lang_code):
     b = MESSAGES["buttons"]["vr_device"][lang_code]
@@ -229,12 +252,14 @@ def get_vr_keyboard(lang_code):
         [types.InlineKeyboardButton(text=MESSAGES["buttons"]["back"][lang_code], callback_data="back")]
     ])
 
+
 def get_partner_keyboard(lang_code):
     return types.InlineKeyboardMarkup(inline_keyboard=[
         [types.InlineKeyboardButton(text=MESSAGES["partner_contact_yes"][lang_code], callback_data="partner_yes")],
         [types.InlineKeyboardButton(text=MESSAGES["partner_contact_no"][lang_code], callback_data="partner_no")],
         [types.InlineKeyboardButton(text=MESSAGES["buttons"]["back"][lang_code], callback_data="back")]
     ])
+
 
 def get_duration_keyboard(lang_code):
     b = MESSAGES["buttons"]["duration"][lang_code]
@@ -248,6 +273,7 @@ def get_duration_keyboard(lang_code):
         [types.InlineKeyboardButton(text=MESSAGES["buttons"]["back"][lang_code], callback_data="back")]
     ])
 
+
 def get_comment_keyboard(lang_code):
     return types.InlineKeyboardMarkup(inline_keyboard=[
         [types.InlineKeyboardButton(text=MESSAGES["buttons"]["comment"][lang_code], callback_data="add_comment")],
@@ -255,14 +281,18 @@ def get_comment_keyboard(lang_code):
         [types.InlineKeyboardButton(text=MESSAGES["buttons"]["back"][lang_code], callback_data="back")]
     ])
 
+
 def back_keyboard(lang_code):
     return types.InlineKeyboardMarkup(inline_keyboard=[
         [types.InlineKeyboardButton(text=MESSAGES["buttons"]["back"][lang_code], callback_data="back")]
     ])
 
+
 # === ОБРАБОТЧИКИ ===
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message, state: FSMContext):
+    logger.info(f"Команда /start от пользователя {message.from_user.id}")
+    
     if message.chat.type != "private":
         bot_info = await bot.get_me()
         builder = InlineKeyboardBuilder()
@@ -279,17 +309,20 @@ async def cmd_start(message: types.Message, state: FSMContext):
     await message.answer(MESSAGES["start_choose_lang"], reply_markup=get_lang_keyboard("ru"))
     await state.set_state(Form.language)
 
+
 @dp.callback_query(lambda c: c.data.startswith("lang_"))
 async def process_language(callback: types.CallbackQuery, state: FSMContext):
     lang_map = {"lang_ru": "ru", "lang_en": "en", "lang_zh": "zh"}
     lang_code = lang_map.get(callback.data)
     if not lang_code:
+        logger.warning(f"Неверный выбор языка: {callback.data}")
         await callback.answer("Ошибка выбора языка", show_alert=True)
         return
     await state.update_data(language=lang_code)
     await callback.message.edit_text(MESSAGES["choose_server"][lang_code], reply_markup=get_server_keyboard(lang_code))
     await state.set_state(Form.server_type)
     await callback.answer()
+
 
 @dp.callback_query(lambda c: c.data.startswith("server_"))
 async def process_server_type(callback: types.CallbackQuery, state: FSMContext):
@@ -303,6 +336,7 @@ async def process_server_type(callback: types.CallbackQuery, state: FSMContext):
     }
     server_info = server_map.get(callback.data)
     if not server_info:
+        logger.warning(f"Неверный выбор сервера: {callback.data}")
         await callback.answer("Ошибка выбора сервера", show_alert=True)
         return
     server_type, topic_id = server_info
@@ -311,12 +345,14 @@ async def process_server_type(callback: types.CallbackQuery, state: FSMContext):
     await state.set_state(Form.server_version)
     await callback.answer()
 
+
 @dp.callback_query(lambda c: c.data.startswith("ver_"))
 async def process_server_version(callback: types.CallbackQuery, state: FSMContext):
     data = await state.get_data()
     lang_code = data.get("language", "en")
     version = {"ver_1272": "1.2.7.2", "ver_1281": "1.2.8.1"}.get(callback.data)
     if not version:
+        logger.warning(f"Неверный выбор версии: {callback.data}")
         await callback.answer("Ошибка выбора версии", show_alert=True)
         return
     await state.update_data(server_version=version)
@@ -324,6 +360,7 @@ async def process_server_version(callback: types.CallbackQuery, state: FSMContex
     await callback.message.edit_text(MESSAGES["ask_area"][lang_code], reply_markup=get_area_keyboard(lang_code, server_type))
     await state.set_state(Form.area_size)
     await callback.answer()
+
 
 @dp.callback_query(lambda c: c.data.startswith("area_"))
 async def process_area_size(callback: types.CallbackQuery, state: FSMContext):
@@ -334,6 +371,7 @@ async def process_area_size(callback: types.CallbackQuery, state: FSMContext):
     await callback.message.edit_text(MESSAGES["ask_vr_device"][lang_code], reply_markup=get_vr_keyboard(lang_code))
     await state.set_state(Form.vr_device)
     await callback.answer()
+
 
 @dp.callback_query(lambda c: c.data.startswith("vr_"))
 async def process_vr_device(callback: types.CallbackQuery, state: FSMContext):
@@ -347,12 +385,14 @@ async def process_vr_device(callback: types.CallbackQuery, state: FSMContext):
     }
     vr_device = vr_map.get(callback.data)
     if not vr_device:
+        logger.warning(f"Неверный выбор VR: {callback.data}")
         await callback.answer("Ошибка выбора VR", show_alert=True)
         return
     await state.update_data(vr_device=vr_device)
     await callback.message.edit_text(MESSAGES["ask_partner_contact"][lang_code], reply_markup=get_partner_keyboard(lang_code))
     await state.set_state(Form.partner_contact)
     await callback.answer()
+
 
 @dp.callback_query(lambda c: c.data == "partner_yes")
 async def partner_yes(callback: types.CallbackQuery, state: FSMContext):
@@ -361,6 +401,7 @@ async def partner_yes(callback: types.CallbackQuery, state: FSMContext):
     await callback.message.edit_text(MESSAGES["ask_partner_name"][lang_code], reply_markup=back_keyboard(lang_code))
     await state.set_state(Form.partner_name)
     await callback.answer()
+
 
 @dp.callback_query(lambda c: c.data == "partner_no")
 async def partner_no(callback: types.CallbackQuery, state: FSMContext):
@@ -371,6 +412,7 @@ async def partner_no(callback: types.CallbackQuery, state: FSMContext):
     await state.set_state(Form.city)
     await callback.answer()
 
+
 @dp.message(Form.partner_name)
 async def process_partner_name(message: types.Message, state: FSMContext):
     await state.update_data(partner_name=message.text.strip() or None)
@@ -378,6 +420,7 @@ async def process_partner_name(message: types.Message, state: FSMContext):
     lang_code = data.get("language", "en")
     await message.answer(MESSAGES["ask_partner_phone"][lang_code], reply_markup=back_keyboard(lang_code))
     await state.set_state(Form.partner_phone)
+
 
 @dp.message(Form.partner_phone)
 async def process_partner_phone(message: types.Message, state: FSMContext):
@@ -387,6 +430,7 @@ async def process_partner_phone(message: types.Message, state: FSMContext):
     await message.answer(MESSAGES["ask_partner_email"][lang_code], reply_markup=back_keyboard(lang_code))
     await state.set_state(Form.partner_email)
 
+
 @dp.message(Form.partner_email)
 async def process_partner_email(message: types.Message, state: FSMContext):
     await state.update_data(partner_email=message.text.strip() or None)
@@ -394,6 +438,7 @@ async def process_partner_email(message: types.Message, state: FSMContext):
     lang_code = data.get("language", "en")
     await message.answer(MESSAGES["ask_partner_crm"][lang_code], reply_markup=back_keyboard(lang_code))
     await state.set_state(Form.partner_crm)
+
 
 @dp.message(Form.partner_crm)
 async def process_partner_crm(message: types.Message, state: FSMContext):
@@ -403,6 +448,7 @@ async def process_partner_crm(message: types.Message, state: FSMContext):
     await message.answer(MESSAGES["ask_city"][lang_code], reply_markup=back_keyboard(lang_code))
     await state.set_state(Form.city)
 
+
 @dp.message(Form.city)
 async def process_city(message: types.Message, state: FSMContext):
     await state.update_data(city=message.text.strip())
@@ -410,6 +456,7 @@ async def process_city(message: types.Message, state: FSMContext):
     lang_code = data.get("language", "en")
     await message.answer(MESSAGES["ask_duration"][lang_code], reply_markup=get_duration_keyboard(lang_code))
     await state.set_state(Form.duration)
+
 
 @dp.callback_query(lambda c: c.data.startswith("dur_"))
 async def process_duration(callback: types.CallbackQuery, state: FSMContext):
@@ -421,12 +468,14 @@ async def process_duration(callback: types.CallbackQuery, state: FSMContext):
     }
     duration = duration_map.get(callback.data)
     if not duration:
+        logger.warning(f"Неверный выбор срока: {callback.data}")
         await callback.answer("Ошибка выбора срока", show_alert=True)
         return
     await state.update_data(duration=duration)
     await callback.message.edit_text(MESSAGES["ask_comment"][lang_code], reply_markup=get_comment_keyboard(lang_code))
     await state.set_state(Form.comment)
     await callback.answer()
+
 
 @dp.callback_query(lambda c: c.data == "add_comment")
 async def ask_comment(callback: types.CallbackQuery, state: FSMContext):
@@ -435,124 +484,199 @@ async def ask_comment(callback: types.CallbackQuery, state: FSMContext):
     await state.set_state(Form.comment)
     await callback.answer()
 
+
 @dp.callback_query(lambda c: c.data == "send_without_comment")
 async def send_without_comment(callback: types.CallbackQuery, state: FSMContext):
+    """Обработка отправки без комментария — КРИТИЧЕСКИ ВАЖНО: await перед finalize_request"""
+    logger.info(f"Пользователь {callback.from_user.id} выбрал отправку без комментария")
     await state.update_data(comment=None)
-    # ✅ FIX: удаляем клавиатуру у текущего сообщения перед финализацией
-    await callback.message.edit_reply_markup(reply_markup=None)
-    await finalize_request(callback, state)
+    try:
+        # ✅ Убираем клавиатуру
+        await callback.message.edit_reply_markup(reply_markup=None)
+        # ✅ КРИТИЧЕСКИ: await перед finalize_request!
+        await finalize_request(callback, state)
+    except Exception as e:
+        logger.error(f"Ошибка в send_without_comment: {e}", exc_info=True)
+        await callback.answer("Произошла ошибка. Попробуйте снова.", show_alert=True)
     await callback.answer()
+
 
 @dp.message(Form.comment)
 async def process_comment(message: types.Message, state: FSMContext):
+    """Обработка ввода комментария"""
+    logger.info(f"Пользователь {message.from_user.id} ввёл комментарий")
     await state.update_data(comment=message.text.strip())
     await finalize_request(message, state)
 
-# === ФИНАЛИЗАЦИЯ ===
+
+# === ФИНАЛИЗАЦИЯ ЗАПРОСА ===
 async def finalize_request(event, state: FSMContext):
+    """Финализация запроса с полной обработкой ошибок"""
     data = await state.get_data()
     lang_code = data.get("language", "en")
-
-    # Определяем пользователя и тип события
-    is_callback = isinstance(event, types.CallbackQuery)
-    user = event.from_user if is_callback else event.from_user
-    user_id = user.id
-    username = user.username
-    first_name = user.first_name
-    last_name = user.last_name
-
-    server_type = data.get("server_type")
-    server_version = data.get("server_version")
-    vr_device = data.get("vr_device")
-    area_size = data.get("area_size")
-    city = data.get("city")
-    duration = data.get("duration")
-    topic_id = data.get("topic_id")
-    comment = data.get("comment")
-    partner_name = data.get("partner_name")
-    partner_phone = data.get("partner_phone")
-    partner_email = data.get("partner_email")
-    partner_crm = data.get("partner_crm")
-
-    # Переводим только город и комментарий
-    city_ru = translate_to_russian(city, lang_code)
-    comment_ru = translate_to_russian(comment, lang_code) if comment else None
-
-    # Формируем сообщение
-    final_msg = (
-        f"Прошу включить {server_type} сервер, для страны / города: {city_ru}.\n"
-        f"Игровая зона с размером {area_size} метров.\n"
-        f"Версия сервера: {server_version}.\n"
-        f"Партнер использует {vr_device}.\n"
-        f"Срок демо показа: {duration} дня(ей).\n"
-    )
-
-    partner_lines = []
-    if partner_name:
-        partner_lines.append(f"Контакт (Имя): {partner_name}")
-    if partner_phone:
-        partner_lines.append(f"Номер телефона: {partner_phone}")
-    if partner_email:
-        partner_lines.append(f"Email: {partner_email}")
-    if partner_crm:
-        partner_lines.append(f"Ссылка на CRM: {partner_crm}")
-    if partner_lines:
-        final_msg += "\n" + "\n".join(partner_lines) + "\n"
-
-    if comment_ru:
-        final_msg += f"\n💬 Комментарий: {comment_ru}"
-
-    user_info = f"\n\n👤 Запрос отправлен пользователем: {first_name}"
-    if last_name:
-        user_info += f" {last_name}"
-    if username:
-        user_info += f" (@{username})"
-    user_info += f" (ID: {user_id})"
-    if lang_code == "zh":
-        user_info += " (на китайском языке)"
-    elif lang_code == "en":
-        user_info += " (на английском языке)"
-
-    final_msg += user_info
-
-    if lang_code in ["en", "zh"]:
-        final_msg += "\n\n🌐 Сообщение автоматически переведено на русский"
-
-    # Отправка в топик
-    sent_message = await bot.send_message(chat_id=MAIN_CHAT_ID, text=final_msg, message_thread_id=topic_id)
-    msg_id = sent_message.message_id
-    chat_id_short = str(MAIN_CHAT_ID).replace("-100", "")
-    link = f"https://t.me/c/{chat_id_short}/{msg_id}?thread={topic_id}"
-
-    # Сохранение в БД
-    expires_at = datetime.now() + timedelta(days=int(duration))
-    request_data = {
-        "user_id": user_id,
-        "language": lang_code,
-        "server_type": server_type,
-        "area_size": area_size,
-        "vr_device": vr_device,
-        "duration": int(duration),
-        "city": city,
-        "topic_id": topic_id
-    }
-    save_request(request_data, link, expires_at.strftime("%Y-%m-%d %H:%M:%S"))
-
-    # ✅ FIX: всегда отправляем НОВОЕ сообщение с подтверждением
-    success_msg = MESSAGES["success_with_link"][lang_code].format(link=link)
+    
     try:
-        if is_callback:
-            await event.message.answer(success_msg, parse_mode="HTML")
-        else:
-            await event.answer(success_msg, parse_mode="HTML")
+        # Определяем пользователя и тип события
+        is_callback = isinstance(event, types.CallbackQuery)
+        user = event.from_user if is_callback else event.from_user
+        user_id = user.id
+        username = user.username
+        first_name = user.first_name
+        last_name = user.last_name
+
+        server_type = data.get("server_type")
+        server_version = data.get("server_version")
+        vr_device = data.get("vr_device")
+        area_size = data.get("area_size")
+        city = data.get("city")
+        duration = data.get("duration")
+        topic_id = data.get("topic_id")
+        comment = data.get("comment")
+        partner_name = data.get("partner_name")
+        partner_phone = data.get("partner_phone")
+        partner_email = data.get("partner_email")
+        partner_crm = data.get("partner_crm")
+
+        # ✅ Безопасный перевод с обработкой ошибок
+        try:
+            city_ru = translate_to_russian(city, lang_code) if city else ""
+            comment_ru = translate_to_russian(comment, lang_code) if comment else None
+        except Exception as e:
+            logger.error(f"Ошибка перевода: {e}")
+            city_ru = city or ""
+            comment_ru = comment
+
+        # Формируем сообщение
+        final_msg = (
+            f"Прошу включить {server_type} сервер, для страны / города: {city_ru}.\n"
+            f"Игровая зона с размером {area_size} метров.\n"
+            f"Версия сервера: {server_version}.\n"
+            f"Партнер использует {vr_device}.\n"
+            f"Срок демо показа: {duration} дня(ей).\n"
+        )
+
+        partner_lines = []
+        if partner_name:
+            partner_lines.append(f"Контакт (Имя): {partner_name}")
+        if partner_phone:
+            partner_lines.append(f"Номер телефона: {partner_phone}")
+        if partner_email:
+            partner_lines.append(f"Email: {partner_email}")
+        if partner_crm:
+            partner_lines.append(f"Ссылка на CRM: {partner_crm}")
+        if partner_lines:
+            final_msg += "\n" + "\n".join(partner_lines) + "\n"
+
+        if comment_ru:
+            final_msg += f"\n💬 Комментарий: {comment_ru}"
+
+        user_info = f"\n\n👤 Запрос отправлен пользователем: {first_name}"
+        if last_name:
+            user_info += f" {last_name}"
+        if username:
+            user_info += f" (@{username})"
+        user_info += f" (ID: {user_id})"
+        if lang_code == "zh":
+            user_info += " (на китайском языке)"
+        elif lang_code == "en":
+            user_info += " (на английском языке)"
+
+        final_msg += user_info
+
+        if lang_code in ["en", "zh"]:
+            final_msg += "\n\n🌐 Сообщение автоматически переведено на русский"
+
+        # ✅ Отправка в топик с обработкой ошибок
+        try:
+            sent_message = await bot.send_message(
+                chat_id=MAIN_CHAT_ID, 
+                text=final_msg, 
+                message_thread_id=topic_id
+            )
+            msg_id = sent_message.message_id
+            chat_id_short = str(MAIN_CHAT_ID).replace("-100", "")
+            link = f"https://t.me/c/{chat_id_short}/{msg_id}?thread={topic_id}"
+            logger.info(f"Сообщение отправлено в чат, ссылка: {link}")
+        except Exception as e:
+            logger.error(f"Ошибка отправки в чат: {e}", exc_info=True)
+            link = "#"
+            msg_id = "unknown"
+
+        # ✅ Сохранение в БД с обработкой ошибок
+        try:
+            expires_at = datetime.now() + timedelta(days=int(duration))
+            request_data = {
+                "user_id": user_id,
+                "language": lang_code,
+                "server_type": server_type,
+                "area_size": area_size,
+                "vr_device": vr_device,
+                "duration": int(duration),
+                "city": city,
+                "topic_id": topic_id
+            }
+            save_request(request_data, link, expires_at.strftime("%Y-%m-%d %H:%M:%S"))
+            logger.info(f"Запрос сохранён в БД для пользователя {user_id}")
+        except Exception as e:
+            logger.error(f"Ошибка сохранения в БД: {e}", exc_info=True)
+
+        # ✅ ОТПРАВКА ФИНАЛЬНОГО СООБЩЕНИЯ ПОЛЬЗОВАТЕЛЮ
+        success_msg = MESSAGES["success_with_link"][lang_code].format(link=link)
+        
+        try:
+            if is_callback:
+                # Для callback - отправляем НОВОЕ сообщение пользователю
+                await bot.send_message(
+                    chat_id=event.from_user.id,
+                    text=success_msg,
+                    parse_mode="HTML"
+                )
+                # ✅ Удаляем сообщение с кнопками, чтобы не дублировать
+                await callback.message.delete()
+            else:
+                # Для message - отвечаем на сообщение
+                await event.answer(
+                    success_msg,
+                    parse_mode="HTML"
+                )
+        except Exception as e:
+            logger.error(f"Ошибка отправки подтверждения: {e}", exc_info=True)
+            # Пробуем отправить без parse_mode как запасной вариант
+            try:
+                plain_msg = f"✅ Запрос успешно оформлен! Ссылка: {link}"
+                if is_callback:
+                    await bot.send_message(chat_id=event.from_user.id, text=plain_msg)
+                else:
+                    await event.answer(plain_msg)
+            except Exception as e2:
+                logger.error(f"Не удалось отправить подтверждение даже в упрощённом виде: {e2}")
+
+        # ✅ Очищаем состояние
+        await state.clear()
+        logger.info(f"Запрос успешно завершён для пользователя {user_id}")
+        
     except Exception as e:
-        print(f"Ошибка отправки подтверждения: {e}")
+        logger.error(f"Критическая ошибка в finalize_request: {e}", exc_info=True)
+        # Пробуем очистить состояние даже при ошибке
+        try:
+            await state.clear()
+        except:
+            pass
+        # Уведомляем пользователя
+        try:
+            error_msg = "❌ Произошла ошибка при обработке запроса. Попробуйте снова /start"
+            if isinstance(event, types.CallbackQuery):
+                await bot.send_message(chat_id=event.from_user.id, text=error_msg)
+            else:
+                await event.answer(error_msg)
+        except:
+            pass
 
-    await state.clear()
 
-# === BACK ===
+# === ОБРАБОТКА КНОПКИ НАЗАД ===
 @dp.callback_query(lambda c: c.data == "back")
 async def process_back(callback: types.CallbackQuery, state: FSMContext):
+    logger.info(f"Пользователь {callback.from_user.id} нажал кнопку 'Назад'")
     current_state = await state.get_state()
     data = await state.get_data()
     lang_code = data.get("language", "ru")
@@ -598,13 +722,44 @@ async def process_back(callback: types.CallbackQuery, state: FSMContext):
     elif current_state == Form.server_type:
         await callback.message.edit_text(MESSAGES["start_choose_lang"], reply_markup=get_lang_keyboard("ru"))
         await state.set_state(Form.language)
+    else:
+        # Если состояние неизвестно — начинаем заново
+        await callback.message.edit_text(MESSAGES["start_choose_lang"], reply_markup=get_lang_keyboard("ru"))
+        await state.set_state(Form.language)
 
     await callback.answer()
 
+
+# === ОБРАБОТКА НЕИЗВЕСТНЫХ СООБЩЕНИЙ ===
+@dp.message()
+async def handle_unknown_state(message: types.Message, state: FSMContext):
+    """Обработка сообщений, когда бот в неожиданном состоянии"""
+    current_state = await state.get_state()
+    if current_state:
+        logger.warning(f"Получено сообщение в состоянии {current_state} от {message.from_user.id}")
+        await message.answer(
+            "🔄 Похоже, произошла ошибка. Начните заново: /start",
+            reply_markup=types.ReplyKeyboardRemove()
+        )
+        await state.clear()
+
+
+# === HEALTH CHECK ===
+@dp.message(Command("ping"))
+async def cmd_ping(message: types.Message):
+    """Проверка работоспособности бота"""
+    await message.answer("🟢 Бот работает нормально!")
+    logger.info(f"Health check от пользователя {message.from_user.id}")
+
+
 # === MAIN ===
 async def main():
+    logger.info("Запуск бота...")
     init_db()
+    logger.info("База данных инициализирована")
     await dp.start_polling(bot)
 
+
 if __name__ == "__main__":
+    logger.info("=== Бот запущен ===")
     asyncio.run(main())
