@@ -130,9 +130,9 @@ MESSAGES = {
     },
     "buttons": {
         "lang": {
-            "ru": {"lang_ru": "🇷🇺 Русский", "lang_en": "🇺 English", "lang_zh": "🇨🇳 中文"},
-            "en": {"lang_ru": "🇷🇺 Russian", "lang_en": "🇺 English", "lang_zh": "🇨🇳 Chinese"},
-            "zh": {"lang_ru": "🇷 俄语", "lang_en": "🇺 English", "lang_zh": "🇨🇳 中文"}
+            "ru": {"lang_ru": "🇷🇺 Русский", "lang_en": "🇺🇸 English", "lang_zh": "🇨🇳 中文"},
+            "en": {"lang_ru": "🇷 Russian", "lang_en": "🇺🇸 English", "lang_zh": "🇨🇳 Chinese"},
+            "zh": {"lang_ru": "🇷🇺 俄语", "lang_en": "🇺 English", "lang_zh": "🇨🇳 中文"}
         },
         "server": {
             "ru": {"server_usd": "🇺🇸 Сервер USD", "server_eud": "🇪🇺 Сервер EUD", "server_rud": "🇷 Сервер RUD", "server_chd": "🇨🇳 Сервер CHD"},
@@ -202,7 +202,7 @@ def translate_to_russian(text: str, source_lang: str) -> str:
         return translator.translate(text)
     except Exception as e:
         logger.error(f"Ошибка перевода '{text}': {e}")
-        return text  # Возвращаем оригинал при ошибке
+        return text
 
 
 # === КЛАВИАТУРЫ ===
@@ -487,13 +487,10 @@ async def ask_comment(callback: types.CallbackQuery, state: FSMContext):
 
 @dp.callback_query(lambda c: c.data == "send_without_comment")
 async def send_without_comment(callback: types.CallbackQuery, state: FSMContext):
-    """Обработка отправки без комментария — КРИТИЧЕСКИ ВАЖНО: await перед finalize_request"""
     logger.info(f"Пользователь {callback.from_user.id} выбрал отправку без комментария")
     await state.update_data(comment=None)
     try:
-        # ✅ Убираем клавиатуру
         await callback.message.edit_reply_markup(reply_markup=None)
-        # ✅ КРИТИЧЕСКИ: await перед finalize_request!
         await finalize_request(callback, state)
     except Exception as e:
         logger.error(f"Ошибка в send_without_comment: {e}", exc_info=True)
@@ -503,7 +500,6 @@ async def send_without_comment(callback: types.CallbackQuery, state: FSMContext)
 
 @dp.message(Form.comment)
 async def process_comment(message: types.Message, state: FSMContext):
-    """Обработка ввода комментария"""
     logger.info(f"Пользователь {message.from_user.id} ввёл комментарий")
     await state.update_data(comment=message.text.strip())
     await finalize_request(message, state)
@@ -511,12 +507,10 @@ async def process_comment(message: types.Message, state: FSMContext):
 
 # === ФИНАЛИЗАЦИЯ ЗАПРОСА ===
 async def finalize_request(event, state: FSMContext):
-    """Финализация запроса с полной обработкой ошибок"""
     data = await state.get_data()
     lang_code = data.get("language", "en")
     
     try:
-        # Определяем пользователя и тип события
         is_callback = isinstance(event, types.CallbackQuery)
         user = event.from_user if is_callback else event.from_user
         user_id = user.id
@@ -537,7 +531,6 @@ async def finalize_request(event, state: FSMContext):
         partner_email = data.get("partner_email")
         partner_crm = data.get("partner_crm")
 
-        # ✅ Безопасный перевод с обработкой ошибок
         try:
             city_ru = translate_to_russian(city, lang_code) if city else ""
             comment_ru = translate_to_russian(comment, lang_code) if comment else None
@@ -546,7 +539,6 @@ async def finalize_request(event, state: FSMContext):
             city_ru = city or ""
             comment_ru = comment
 
-        # Формируем сообщение
         final_msg = (
             f"Прошу включить {server_type} сервер, для страны / города: {city_ru}.\n"
             f"Игровая зона с размером {area_size} метров.\n"
@@ -586,7 +578,6 @@ async def finalize_request(event, state: FSMContext):
         if lang_code in ["en", "zh"]:
             final_msg += "\n\n🌐 Сообщение автоматически переведено на русский"
 
-        # ✅ Отправка в топик с обработкой ошибок
         try:
             sent_message = await bot.send_message(
                 chat_id=MAIN_CHAT_ID, 
@@ -602,7 +593,6 @@ async def finalize_request(event, state: FSMContext):
             link = "#"
             msg_id = "unknown"
 
-        # ✅ Сохранение в БД с обработкой ошибок
         try:
             expires_at = datetime.now() + timedelta(days=int(duration))
             request_data = {
@@ -620,28 +610,23 @@ async def finalize_request(event, state: FSMContext):
         except Exception as e:
             logger.error(f"Ошибка сохранения в БД: {e}", exc_info=True)
 
-        # ✅ ОТПРАВКА ФИНАЛЬНОГО СООБЩЕНИЯ ПОЛЬЗОВАТЕЛЮ
         success_msg = MESSAGES["success_with_link"][lang_code].format(link=link)
         
         try:
             if is_callback:
-                # Для callback - отправляем НОВОЕ сообщение пользователю
                 await bot.send_message(
                     chat_id=event.from_user.id,
                     text=success_msg,
                     parse_mode="HTML"
                 )
-                # ✅ Удаляем сообщение с кнопками, чтобы не дублировать
                 await callback.message.delete()
             else:
-                # Для message - отвечаем на сообщение
                 await event.answer(
                     success_msg,
                     parse_mode="HTML"
                 )
         except Exception as e:
             logger.error(f"Ошибка отправки подтверждения: {e}", exc_info=True)
-            # Пробуем отправить без parse_mode как запасной вариант
             try:
                 plain_msg = f"✅ Запрос успешно оформлен! Ссылка: {link}"
                 if is_callback:
@@ -649,20 +634,17 @@ async def finalize_request(event, state: FSMContext):
                 else:
                     await event.answer(plain_msg)
             except Exception as e2:
-                logger.error(f"Не удалось отправить подтверждение даже в упрощённом виде: {e2}")
+                logger.error(f"Не удалось отправить подтверждение: {e2}")
 
-        # ✅ Очищаем состояние
         await state.clear()
         logger.info(f"Запрос успешно завершён для пользователя {user_id}")
         
     except Exception as e:
         logger.error(f"Критическая ошибка в finalize_request: {e}", exc_info=True)
-        # Пробуем очистить состояние даже при ошибке
         try:
             await state.clear()
         except:
             pass
-        # Уведомляем пользователя
         try:
             error_msg = "❌ Произошла ошибка при обработке запроса. Попробуйте снова /start"
             if isinstance(event, types.CallbackQuery):
@@ -723,17 +705,14 @@ async def process_back(callback: types.CallbackQuery, state: FSMContext):
         await callback.message.edit_text(MESSAGES["start_choose_lang"], reply_markup=get_lang_keyboard("ru"))
         await state.set_state(Form.language)
     else:
-        # Если состояние неизвестно — начинаем заново
         await callback.message.edit_text(MESSAGES["start_choose_lang"], reply_markup=get_lang_keyboard("ru"))
         await state.set_state(Form.language)
 
     await callback.answer()
 
 
-# === ОБРАБОТКА НЕИЗВЕСТНЫХ СООБЩЕНИЙ ===
 @dp.message()
 async def handle_unknown_state(message: types.Message, state: FSMContext):
-    """Обработка сообщений, когда бот в неожиданном состоянии"""
     current_state = await state.get_state()
     if current_state:
         logger.warning(f"Получено сообщение в состоянии {current_state} от {message.from_user.id}")
@@ -744,10 +723,8 @@ async def handle_unknown_state(message: types.Message, state: FSMContext):
         await state.clear()
 
 
-# === HEALTH CHECK ===
 @dp.message(Command("ping"))
 async def cmd_ping(message: types.Message):
-    """Проверка работоспособности бота"""
     await message.answer("🟢 Бот работает нормально!")
     logger.info(f"Health check от пользователя {message.from_user.id}")
 
