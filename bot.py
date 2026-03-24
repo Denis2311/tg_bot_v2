@@ -65,24 +65,24 @@ MESSAGES = {
         "zh": "❌ 否，跳过"
     },
     "ask_partner_name": {
-        "ru": "👤 Имя партнёра:",
-        "en": "👤 Partner name:",
-        "zh": "👤 合作伙伴姓名："
+        "ru": "👤 Введите имя партнёра:",
+        "en": "👤 Enter partner name:",
+        "zh": "👤 请输入合作伙伴姓名："
     },
     "ask_partner_phone": {
-        "ru": "📱 Номер телефона партнёра:",
-        "en": "📱 Partner phone number:",
-        "zh": "📱 合作伙伴电话号码："
+        "ru": "📱 Введите номер телефона партнёра:",
+        "en": "📱 Enter partner phone number:",
+        "zh": "📱 请输入合作伙伴电话号码："
     },
     "ask_partner_email": {
-        "ru": "📧 Email партнёра:",
-        "en": "📧 Partner email:",
-        "zh": "📧 合作伙伴电子邮件："
+        "ru": "📧 Введите email партнёра:",
+        "en": "📧 Enter partner email:",
+        "zh": "📧 请输入合作伙伴电子邮件："
     },
     "ask_partner_crm": {
-        "ru": "🔗 Ссылка на CRM партнёра:",
-        "en": "🔗 Partner CRM link:",
-        "zh": "🔗 合作伙伴CRM链接："
+        "ru": "🔗 Введите ссылку на CRM партнёра:",
+        "en": "🔗 Enter partner CRM link:",
+        "zh": "🔗 请输入合作伙伴CRM链接："
     },
     "ask_city": {
         "ru": "🌍 Укажите страну / город:",
@@ -175,16 +175,13 @@ class Form(StatesGroup):
     duration = State()
     comment = State()
 
-# === ФУНКЦИЯ ПЕРЕВОДА (только для города и комментария) ===
+# === ПЕРЕВОД ===
 def translate_to_russian(text: str, source_lang: str) -> str:
     if not text or source_lang == "ru":
         return text
     try:
-        if source_lang == "zh":
-            translator = GoogleTranslator(source='zh-CN', target='ru')
-        else:
-            translator = GoogleTranslator(source='en', target='ru')
-        return translator.translate(text)
+        src = 'zh-CN' if source_lang == "zh" else 'en'
+        return GoogleTranslator(source=src, target='ru').translate(text)
     except Exception:
         return text
 
@@ -254,8 +251,13 @@ def get_duration_keyboard(lang_code):
 def get_comment_keyboard(lang_code):
     return types.InlineKeyboardMarkup(inline_keyboard=[
         [types.InlineKeyboardButton(text=MESSAGES["buttons"]["comment"][lang_code], callback_data="add_comment")],
-        [types.InlineKeyboardButton(text=MESSAGES["buttons"]["back"][lang_code], callback_data="back")],
-        [types.InlineKeyboardButton(text=MESSAGES["send_without_comment"][lang_code], callback_data="send_without_comment")]
+        [types.InlineKeyboardButton(text=MESSAGES["send_without_comment"][lang_code], callback_data="send_without_comment")],
+        [types.InlineKeyboardButton(text=MESSAGES["buttons"]["back"][lang_code], callback_data="back")]
+    ])
+
+def back_keyboard(lang_code):
+    return types.InlineKeyboardMarkup(inline_keyboard=[
+        [types.InlineKeyboardButton(text=MESSAGES["buttons"]["back"][lang_code], callback_data="back")]
     ])
 
 # === ОБРАБОТЧИКИ ===
@@ -273,6 +275,7 @@ async def cmd_start(message: types.Message, state: FSMContext):
         await message.answer(msg_text, reply_markup=builder.as_markup(), disable_web_page_preview=True)
         return
 
+    await state.clear()
     await message.answer(MESSAGES["start_choose_lang"], reply_markup=get_lang_keyboard("ru"))
     await state.set_state(Form.language)
 
@@ -287,8 +290,6 @@ async def process_language(callback: types.CallbackQuery, state: FSMContext):
     await callback.message.edit_text(MESSAGES["choose_server"][lang_code], reply_markup=get_server_keyboard(lang_code))
     await state.set_state(Form.server_type)
     await callback.answer()
-
-# ... остальные обработчики (server_type → comment) — стандартные, без изменений ...
 
 @dp.callback_query(lambda c: c.data.startswith("server_"))
 async def process_server_type(callback: types.CallbackQuery, state: FSMContext):
@@ -357,9 +358,7 @@ async def process_vr_device(callback: types.CallbackQuery, state: FSMContext):
 async def partner_yes(callback: types.CallbackQuery, state: FSMContext):
     data = await state.get_data()
     lang_code = data.get("language", "en")
-    await callback.message.edit_text(MESSAGES["ask_partner_name"][lang_code], reply_markup=types.InlineKeyboardMarkup(
-        inline_keyboard=[[types.InlineKeyboardButton(text=MESSAGES["buttons"]["back"][lang_code], callback_data="back")]]
-    ))
+    await callback.message.edit_text(MESSAGES["ask_partner_name"][lang_code], reply_markup=back_keyboard(lang_code))
     await state.set_state(Form.partner_name)
     await callback.answer()
 
@@ -368,9 +367,7 @@ async def partner_no(callback: types.CallbackQuery, state: FSMContext):
     await state.update_data(partner_name=None, partner_phone=None, partner_email=None, partner_crm=None)
     data = await state.get_data()
     lang_code = data.get("language", "en")
-    await callback.message.edit_text(MESSAGES["ask_city"][lang_code], reply_markup=types.InlineKeyboardMarkup(
-        inline_keyboard=[[types.InlineKeyboardButton(text=MESSAGES["buttons"]["back"][lang_code], callback_data="back")]]
-    ))
+    await callback.message.edit_text(MESSAGES["ask_city"][lang_code], reply_markup=back_keyboard(lang_code))
     await state.set_state(Form.city)
     await callback.answer()
 
@@ -379,9 +376,7 @@ async def process_partner_name(message: types.Message, state: FSMContext):
     await state.update_data(partner_name=message.text.strip() or None)
     data = await state.get_data()
     lang_code = data.get("language", "en")
-    await message.answer(MESSAGES["ask_partner_phone"][lang_code], reply_markup=types.InlineKeyboardMarkup(
-        inline_keyboard=[[types.InlineKeyboardButton(text=MESSAGES["buttons"]["back"][lang_code], callback_data="back")]]
-    ))
+    await message.answer(MESSAGES["ask_partner_phone"][lang_code], reply_markup=back_keyboard(lang_code))
     await state.set_state(Form.partner_phone)
 
 @dp.message(Form.partner_phone)
@@ -389,9 +384,7 @@ async def process_partner_phone(message: types.Message, state: FSMContext):
     await state.update_data(partner_phone=message.text.strip() or None)
     data = await state.get_data()
     lang_code = data.get("language", "en")
-    await message.answer(MESSAGES["ask_partner_email"][lang_code], reply_markup=types.InlineKeyboardMarkup(
-        inline_keyboard=[[types.InlineKeyboardButton(text=MESSAGES["buttons"]["back"][lang_code], callback_data="back")]]
-    ))
+    await message.answer(MESSAGES["ask_partner_email"][lang_code], reply_markup=back_keyboard(lang_code))
     await state.set_state(Form.partner_email)
 
 @dp.message(Form.partner_email)
@@ -399,9 +392,7 @@ async def process_partner_email(message: types.Message, state: FSMContext):
     await state.update_data(partner_email=message.text.strip() or None)
     data = await state.get_data()
     lang_code = data.get("language", "en")
-    await message.answer(MESSAGES["ask_partner_crm"][lang_code], reply_markup=types.InlineKeyboardMarkup(
-        inline_keyboard=[[types.InlineKeyboardButton(text=MESSAGES["buttons"]["back"][lang_code], callback_data="back")]]
-    ))
+    await message.answer(MESSAGES["ask_partner_crm"][lang_code], reply_markup=back_keyboard(lang_code))
     await state.set_state(Form.partner_crm)
 
 @dp.message(Form.partner_crm)
@@ -409,14 +400,12 @@ async def process_partner_crm(message: types.Message, state: FSMContext):
     await state.update_data(partner_crm=message.text.strip() or None)
     data = await state.get_data()
     lang_code = data.get("language", "en")
-    await message.answer(MESSAGES["ask_city"][lang_code], reply_markup=types.InlineKeyboardMarkup(
-        inline_keyboard=[[types.InlineKeyboardButton(text=MESSAGES["buttons"]["back"][lang_code], callback_data="back")]]
-    ))
+    await message.answer(MESSAGES["ask_city"][lang_code], reply_markup=back_keyboard(lang_code))
     await state.set_state(Form.city)
 
 @dp.message(Form.city)
 async def process_city(message: types.Message, state: FSMContext):
-    await state.update_data(city=message.text)
+    await state.update_data(city=message.text.strip())
     data = await state.get_data()
     lang_code = data.get("language", "en")
     await message.answer(MESSAGES["ask_duration"][lang_code], reply_markup=get_duration_keyboard(lang_code))
@@ -427,12 +416,8 @@ async def process_duration(callback: types.CallbackQuery, state: FSMContext):
     data = await state.get_data()
     lang_code = data.get("language", "en")
     duration_map = {
-        "dur_1": "1",
-        "dur_3": "3",
-        "dur_5": "5",
-        "dur_7": "7",
-        "dur_10": "10",
-        "dur_14": "14"
+        "dur_1": "1", "dur_3": "3", "dur_5": "5",
+        "dur_7": "7", "dur_10": "10", "dur_14": "14"
     }
     duration = duration_map.get(callback.data)
     if not duration:
@@ -446,18 +431,21 @@ async def process_duration(callback: types.CallbackQuery, state: FSMContext):
 @dp.callback_query(lambda c: c.data == "add_comment")
 async def ask_comment(callback: types.CallbackQuery, state: FSMContext):
     lang_code = (await state.get_data()).get("language", "en")
-    await callback.message.edit_text(MESSAGES["enter_comment"][lang_code])
+    await callback.message.edit_text(MESSAGES["enter_comment"][lang_code], reply_markup=back_keyboard(lang_code))
     await state.set_state(Form.comment)
     await callback.answer()
 
 @dp.callback_query(lambda c: c.data == "send_without_comment")
 async def send_without_comment(callback: types.CallbackQuery, state: FSMContext):
     await state.update_data(comment=None)
+    # ✅ FIX: удаляем клавиатуру у текущего сообщения перед финализацией
+    await callback.message.edit_reply_markup(reply_markup=None)
     await finalize_request(callback, state)
+    await callback.answer()
 
 @dp.message(Form.comment)
 async def process_comment(message: types.Message, state: FSMContext):
-    await state.update_data(comment=message.text)
+    await state.update_data(comment=message.text.strip())
     await finalize_request(message, state)
 
 # === ФИНАЛИЗАЦИЯ ===
@@ -465,7 +453,9 @@ async def finalize_request(event, state: FSMContext):
     data = await state.get_data()
     lang_code = data.get("language", "en")
 
-    user = event.from_user if hasattr(event, 'from_user') else event.message.from_user
+    # Определяем пользователя и тип события
+    is_callback = isinstance(event, types.CallbackQuery)
+    user = event.from_user if is_callback else event.from_user
     user_id = user.id
     username = user.username
     first_name = user.first_name
@@ -473,8 +463,8 @@ async def finalize_request(event, state: FSMContext):
 
     server_type = data.get("server_type")
     server_version = data.get("server_version")
-    vr_device = data.get("vr_device")  # ❌ не переводим
-    area_size = data.get("area_size")  # ❌ не переводим
+    vr_device = data.get("vr_device")
+    area_size = data.get("area_size")
     city = data.get("city")
     duration = data.get("duration")
     topic_id = data.get("topic_id")
@@ -484,11 +474,11 @@ async def finalize_request(event, state: FSMContext):
     partner_email = data.get("partner_email")
     partner_crm = data.get("partner_crm")
 
-    # ✅ Переводим ТОЛЬКО: город и комментарий
+    # Переводим только город и комментарий
     city_ru = translate_to_russian(city, lang_code)
     comment_ru = translate_to_russian(comment, lang_code) if comment else None
 
-    # Формируем сообщение на русском
+    # Формируем сообщение
     final_msg = (
         f"Прошу включить {server_type} сервер, для страны / города: {city_ru}.\n"
         f"Игровая зона с размером {area_size} метров.\n"
@@ -497,7 +487,6 @@ async def finalize_request(event, state: FSMContext):
         f"Срок демо показа: {duration} дня(ей).\n"
     )
 
-    # Партнёрские данные — как есть
     partner_lines = []
     if partner_name:
         partner_lines.append(f"Контакт (Имя): {partner_name}")
@@ -545,20 +534,16 @@ async def finalize_request(event, state: FSMContext):
         "vr_device": vr_device,
         "duration": int(duration),
         "city": city,
-        "partner_name": partner_name,
-        "partner_phone": partner_phone,
-        "partner_email": partner_email,
-        "partner_crm": partner_crm,
         "topic_id": topic_id
     }
     save_request(request_data, link, expires_at.strftime("%Y-%m-%d %H:%M:%S"))
 
-    # Подтверждение пользователю
+    # ✅ FIX: всегда отправляем НОВОЕ сообщение с подтверждением
     success_msg = MESSAGES["success_with_link"][lang_code].format(link=link)
     try:
-        if isinstance(event, types.CallbackQuery):
-            await event.message.edit_text(success_msg, parse_mode="HTML")
-        elif isinstance(event, types.Message):
+        if is_callback:
+            await event.message.answer(success_msg, parse_mode="HTML")
+        else:
             await event.answer(success_msg, parse_mode="HTML")
     except Exception as e:
         print(f"Ошибка отправки подтверждения: {e}")
@@ -573,7 +558,10 @@ async def process_back(callback: types.CallbackQuery, state: FSMContext):
     lang_code = data.get("language", "ru")
     server_type = data.get("server_type")
 
-    if current_state == Form.area_size:
+    if current_state == Form.server_version:
+        await callback.message.edit_text(MESSAGES["choose_server"][lang_code], reply_markup=get_server_keyboard(lang_code))
+        await state.set_state(Form.server_type)
+    elif current_state == Form.area_size:
         await callback.message.edit_text(MESSAGES["ask_server_version"][lang_code], reply_markup=get_version_keyboard(lang_code))
         await state.set_state(Form.server_version)
     elif current_state == Form.vr_device:
@@ -586,40 +574,27 @@ async def process_back(callback: types.CallbackQuery, state: FSMContext):
         await callback.message.edit_text(MESSAGES["ask_partner_contact"][lang_code], reply_markup=get_partner_keyboard(lang_code))
         await state.set_state(Form.partner_contact)
     elif current_state == Form.partner_phone:
-        await callback.message.edit_text(MESSAGES["ask_partner_name"][lang_code], reply_markup=types.InlineKeyboardMarkup(
-            inline_keyboard=[[types.InlineKeyboardButton(text=MESSAGES["buttons"]["back"][lang_code], callback_data="back")]]
-        ))
+        await callback.message.edit_text(MESSAGES["ask_partner_name"][lang_code], reply_markup=back_keyboard(lang_code))
         await state.set_state(Form.partner_name)
     elif current_state == Form.partner_email:
-        await callback.message.edit_text(MESSAGES["ask_partner_phone"][lang_code], reply_markup=types.InlineKeyboardMarkup(
-            inline_keyboard=[[types.InlineKeyboardButton(text=MESSAGES["buttons"]["back"][lang_code], callback_data="back")]]
-        ))
+        await callback.message.edit_text(MESSAGES["ask_partner_phone"][lang_code], reply_markup=back_keyboard(lang_code))
         await state.set_state(Form.partner_phone)
     elif current_state == Form.partner_crm:
-        await callback.message.edit_text(MESSAGES["ask_partner_email"][lang_code], reply_markup=types.InlineKeyboardMarkup(
-            inline_keyboard=[[types.InlineKeyboardButton(text=MESSAGES["buttons"]["back"][lang_code], callback_data="back")]]
-        ))
+        await callback.message.edit_text(MESSAGES["ask_partner_email"][lang_code], reply_markup=back_keyboard(lang_code))
         await state.set_state(Form.partner_email)
     elif current_state == Form.city:
         if data.get("partner_name") is not None:
-            await callback.message.edit_text(MESSAGES["ask_partner_crm"][lang_code], reply_markup=types.InlineKeyboardMarkup(
-                inline_keyboard=[[types.InlineKeyboardButton(text=MESSAGES["buttons"]["back"][lang_code], callback_data="back")]]
-            ))
+            await callback.message.edit_text(MESSAGES["ask_partner_crm"][lang_code], reply_markup=back_keyboard(lang_code))
             await state.set_state(Form.partner_crm)
         else:
             await callback.message.edit_text(MESSAGES["ask_partner_contact"][lang_code], reply_markup=get_partner_keyboard(lang_code))
             await state.set_state(Form.partner_contact)
     elif current_state == Form.duration:
-        await callback.message.edit_text(MESSAGES["ask_city"][lang_code], reply_markup=types.InlineKeyboardMarkup(
-            inline_keyboard=[[types.InlineKeyboardButton(text=MESSAGES["buttons"]["back"][lang_code], callback_data="back")]]
-        ))
+        await callback.message.edit_text(MESSAGES["ask_city"][lang_code], reply_markup=back_keyboard(lang_code))
         await state.set_state(Form.city)
     elif current_state == Form.comment:
         await callback.message.edit_text(MESSAGES["ask_duration"][lang_code], reply_markup=get_duration_keyboard(lang_code))
         await state.set_state(Form.duration)
-    elif current_state == Form.server_version:
-        await callback.message.edit_text(MESSAGES["choose_server"][lang_code], reply_markup=get_server_keyboard(lang_code))
-        await state.set_state(Form.server_type)
     elif current_state == Form.server_type:
         await callback.message.edit_text(MESSAGES["start_choose_lang"], reply_markup=get_lang_keyboard("ru"))
         await state.set_state(Form.language)
